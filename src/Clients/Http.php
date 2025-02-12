@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Shopify\Clients;
 
 use Psr\Http\Client\ClientExceptionInterface;
+use Psr\Http\Client\ClientInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Shopify\Exception\UninitializedContextException;
 use Exception;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Uri;
 use GuzzleHttp\Psr7\Utils;
-use Shopify\Context;
 
 class Http
 {
@@ -28,9 +30,28 @@ class Http
 
     private int $lastApiDeprecationWarning = 0;
 
-    public function __construct(string $domain)
-    {
+    private ClientInterface $client;
+
+    /**
+     * Will be used if not provided in Headers
+     * @TODO: Move to HttpConfiguration
+     **/
+    private int $defaultRetryTimeout = 1;
+
+    private LoggerInterface $logger;
+
+    private string $userAgentPrefix;
+
+    public function __construct(
+        string $domain,
+        ClientInterface $client,
+        LoggerInterface $logger = null,
+        string $userAgentPrefix = '',
+    ) {
         $this->domain = $domain;
+        $this->client = $client;
+        $this->logger = $logger ?? new NullLogger();
+        $this->userAgentPrefix = $userAgentPrefix;
     }
 
     /**
@@ -174,8 +195,8 @@ class Http
         $version = require dirname(__FILE__) . '/../version.php';
         $userAgentParts = ["Shopify Admin API Library for PHP v$version"];
 
-        if (Context::$USER_AGENT_PREFIX) {
-            array_unshift($userAgentParts, Context::$USER_AGENT_PREFIX);
+        if ($this->userAgentPrefix !== '') {
+            array_unshift($userAgentParts, $this->userAgentPrefix);
         }
 
         if (isset($headers[HttpHeaders::USER_AGENT])) {
@@ -183,7 +204,6 @@ class Http
             unset($headers[HttpHeaders::USER_AGENT]);
         }
 
-        $client = Context::$HTTP_CLIENT_FACTORY->client();
 
         $query = preg_replace("/%5B[0-9]+%5D/", "%5B%5D", http_build_query($query));
 
@@ -214,12 +234,12 @@ class Http
         do {
             $currentTries++;
 
-            $response = HttpResponse::fromResponse($client->sendRequest($request));
+            $response = HttpResponse::fromResponse($this->client->sendRequest($request));
 
             if (in_array($response->getStatusCode(), self::RETRIABLE_STATUS_CODES)) {
                 $retryAfter = $response->hasHeader(HttpHeaders::RETRY_AFTER)
                     ? $response->getHeaderLine(HttpHeaders::RETRY_AFTER)
-                    : Context::$RETRY_TIME_IN_SECONDS;
+                    : $this->defaultRetryTimeout;
 
                 usleep((int)($retryAfter * 1000000));
             } else {
@@ -262,7 +282,7 @@ class Http
         $e = new Exception();
         $stackTrace = str_replace("\n", "\n    ", $e->getTraceAsString());
 
-        Context::logWarning('API Deprecation notice', [
+        $this->logger->warning('API Deprecation notice', [
             'url' => $url,
             'reason' => $reason,
             'stack trace' => $stackTrace
