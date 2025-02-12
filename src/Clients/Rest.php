@@ -12,11 +12,6 @@ class Rest extends Http
     private readonly ?string $accessToken;
 
     /**
-     * Rest Client constructor.
-     *
-     * @param string      $domain
-     * @param string|null $accessToken
-     *
      * @throws MissingArgumentException
      */
     public function __construct(string $domain, ?string $accessToken = null)
