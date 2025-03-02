@@ -8,6 +8,35 @@ and adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 ## Unreleased
 - [#292](https://github.com/Shopify/shopify-api-php/pull/292) [Patch] Fix bug where null can be passed to param 3 of setcookie() 
 
+## v6.0.0 - 
+### Added
+- Introduced Docker support for testing environment
+    - Added Dockerfile and docker-compose configuration
+    - Standardized test environment across different systems
+- Added new `OAuthCallbackConfiguration` for OAuth callback configuration management
+    - Provides structured way to configure OAuth callback parameters
+    - Improves separation of concerns in authentication flow
+    - Enables independent HTTP client usage without tight coupling to OAuth
+
+### Changed
+- [Major] Removed `\Shopify\Context` static class from `\Shopify\Clients\Http`
+- Decoupled HTTP client from OAuth authorization process
+- Enhanced test infrastructure:
+    - Added `appendMockedResponse()` method for better HTTP response mocking
+    - Implemented response queue support using `MockHandler`
+    - Containerized test execution environment
+
+### Deprecated
+- Removed deprecated features from v5.x:
+    - Removed `Context` class completely
+    - Removed `mockTransportRequests()` method
+
+### Technical
+- Improved architecture by reducing component coupling
+- Enhanced code testability through better dependency management
+- Standardized development environment using Docker containers
+
+
 ## v5.9.0 - 2025-01-08
 - [#393](https://github.com/Shopify/shopify-api-php/pull/393) [Minor] Add support for 2025-01 API version REST resources
 - [#367](https://github.com/Shopify/shopify-api-php/pull/367) [Patch] Allow uppercase characters in redirect URI

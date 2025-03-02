@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Shopify\Auth;
 
+use JsonException;
+use Shopify\Configuration\OAuthCallbackConfiguration;
 use Shopify\Exception\PrivateAppException;
 use Shopify\Exception\UninitializedContextException;
 use Shopify\Exception\OAuthCookieNotFoundException;
@@ -111,18 +113,19 @@ class OAuth
      * @throws SessionStorageException
      * @throws UninitializedContextException
      */
-    public static function callback(array $cookies, array $query, ?callable $setCookieFunction = null): Session
+    //public static function callback(array $cookies, array $query, ?callable $setCookieFunction = null): Session
+    public static function callback(OAuthCallbackConfiguration $configuration): Session
     {
         Context::throwIfUninitialized();
         Context::throwIfPrivateApp('OAuth is not allowed for private apps');
 
-        $cookieState = self::getStateCookie($cookies);
-        if (!self::isCallbackQueryValid($query, $cookieState)) {
+        $cookieState = self::getStateCookie($configuration->getCookies());
+        if (!self::isCallbackQueryValid($configuration->getQuery(), $cookieState)) {
             throw new InvalidOAuthException('Invalid OAuth callback.');
         }
 
-        $sanitizedShop = Utils::sanitizeShopDomain($query['shop'] ?? '');
-        $response = self::fetchAccessToken($query, $sanitizedShop);
+        $sanitizedShop = $configuration->getSanitizedShop();
+        $response = self::fetchAccessToken($configuration->getQuery(), $configuration->getShopifyHttpClient());
 
         $isOnline = $response instanceof AccessTokenOnlineResponse;
 
@@ -154,11 +157,11 @@ class OAuth
 
         $sessionExpiration = ($session->getExpires() ? (int)$session->getExpires()->format('U') : 0);
         $cookieSet = self::setSessionIdCookie(
-            $setCookieFunction,
+            $configuration->getSetCookieFunction(),
             $session->getId(),
             Context::$IS_EMBEDDED_APP ? time() : $sessionExpiration
         );
-        $cookieSet = $cookieSet && self::setStateCookie($setCookieFunction, $cookieState, time());
+        $cookieSet = $cookieSet && self::setStateCookie($configuration->getSetCookieFunction(), $cookieState, time());
 
         if (!$cookieSet) {
             throw new CookieSetException('OAuth Cookie could not be saved.');
@@ -399,13 +402,16 @@ class OAuth
     /**
      * Fetches the access token for the given OAuth session, using the query parameters returned by Shopify
      *
-     * @param array  $query The URL query params from the OAuth callback
-     * @param string $shop  The request shop
+     * @param array $query The URL query params from the OAuth callback
+     * @param Http  $httpClient
      *
      * @return AccessTokenResponse|AccessTokenOnlineResponse The access token exchanged for the OAuth code
+     * @throws ClientExceptionInterface
      * @throws HttpRequestException
+     * @throws UninitializedContextException
+     * @throws JsonException
      */
-    private static function fetchAccessToken(array $query, string $shop)
+    private static function fetchAccessToken(array $query, Http $httpClient)
     {
         $post = [
             'client_id' => Context::$API_KEY,
@@ -413,8 +419,7 @@ class OAuth
             'code' => $query['code'],
         ];
 
-        $client = new Http($shop);
-        $response = self::requestAccessToken($client, $post);
+        $response = self::requestAccessToken($httpClient, $post);
         if ($response->getStatusCode() !== 200) {
             throw new HttpRequestException("Failed to get access token: {$response->getDecodedBody()}");
         }
@@ -422,9 +427,9 @@ class OAuth
         $body = $response->getDecodedBody();
         if (array_key_exists('associated_user', $body) && $body['associated_user']) {
             return self::buildAccessTokenOnlineResponse($body);
-        } else {
-            return self::buildAccessTokenResponse($body);
         }
+
+        return self::buildAccessTokenResponse($body);
     }
 
     /**

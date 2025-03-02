@@ -7,6 +7,9 @@ namespace Shopify\Clients;
 use GuzzleHttp\Client;
 use Psr\Http\Client\ClientInterface;
 
+/**
+ * @deprecated Uneccesary class, Client easyli could be mocked with Mocking client itself
+ */
 class HttpClientFactory
 {
     /**

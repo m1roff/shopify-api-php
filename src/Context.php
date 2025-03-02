@@ -16,6 +16,22 @@ use Shopify\Exception\InvalidArgumentException;
 use Shopify\Exception\PrivateAppException;
 use Shopify\Exception\UninitializedContextException;
 
+/**
+ * @deprecated Will be excluded in v6
+ * @TODO Refactor this class to follow OOP and SOLID principles.
+ *
+ * Issues:
+ * - Violates SRP: Handles initialization, logging, validation, and configuration.
+ * - Uses static properties, leading to global state and unpredictable behavior.
+ * - Cannot be tested independently due to hardcoded dependencies.
+ * - Violates OCP: Not extendable without modifying the class itself.
+ * - Violates DIP: Strongly depends on concrete implementations (no interfaces).
+ *
+ * Suggested refactor:
+ * - Convert `Context` into a service with injected dependencies.
+ * - Separate configuration storage from API initialization.
+ * - Use interfaces for `Logger`, `SessionStorage`, and `HttpClientFactory`.
+ */
 class Context
 {
     /** @var string */
