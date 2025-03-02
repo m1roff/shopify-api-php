@@ -17,6 +17,7 @@ use Shopify\Exception\PrivateAppException;
 use Shopify\Exception\UninitializedContextException;
 
 /**
+ * @deprecated Will be excluded in v6
  * @TODO Refactor this class to follow OOP and SOLID principles.
  *
  * Issues:

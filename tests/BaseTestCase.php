@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace ShopifyTest;
 
+use GuzzleHttp\Client;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -23,8 +26,18 @@ class BaseTestCase extends TestCase
     /** @var string */
     protected $version;
 
+    protected ClientInterface $httpClient;
+
+    private MockHandler $httpClientMockHandler;
+
+    private array $httpClientResponseQueue = [];
+
     public function setUp(): void
     {
+        // Create a mock and queue two responses.
+        $this->httpClientMockHandler = new MockHandler();
+        $this->httpClient = new Client(['handler' => HandlerStack::create($this->httpClientMockHandler)]);
+
         // Initialize Context before each test
         Context::initialize(
             apiKey: 'ash',
@@ -34,7 +47,7 @@ class BaseTestCase extends TestCase
             sessionStorage: new MockSessionStorage(),
         );
         Context::$RETRY_TIME_IN_SECONDS = 0;
-        $this->version = require dirname(__FILE__) . '/../src/version.php';
+        $this->version = require __DIR__. '/../src/version.php';
 
         // Make sure we always mock the transport layer so we don't accidentally make real requests
         $this->mockTransportRequests([]);
@@ -68,8 +81,28 @@ class BaseTestCase extends TestCase
         ];
     }
 
+    public function appendMockedResponse(array $requests): void
+    {
+        foreach ($requests as $request) {
+            if ($request->error) {
+                $_newClientResponse  = new HttpRequestException();
+            } else {
+                $_newClientResponse = new Response(
+                    $request->response['statusCode'],
+                    $request->response['headers'],
+                    $request->response['body'],
+                );
+            }
+
+            $this->httpClientMockHandler->append($_newClientResponse);
+        }
+    }
+
+
     /**
      * Sets up a transport layer mock that expects the given requests to happen.
+     *
+     * @deprecated use appendMockedResponse() instead. Due to v6
      *
      * @param MockRequest[] $requests
      */

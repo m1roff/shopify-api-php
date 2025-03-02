@@ -192,7 +192,7 @@ class Http
     ) {
         $maxTries = $tries ?? 1;
 
-        $version = require dirname(__FILE__) . '/../version.php';
+        $version = require __DIR__. '/../version.php';
         $userAgentParts = ["Shopify Admin API Library for PHP v$version"];
 
         if ($this->userAgentPrefix !== '') {
